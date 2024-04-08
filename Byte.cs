@@ -5,14 +5,37 @@ using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 
-public class Byte: CogsAgent
+public class Byte : CogsAgent
 {
+        // Cache to speed up
+    private Rigidbody rBody;
+    private Timer gameTimer;
+    private Transform baseTransform;
+    private Vector3 startingPosition;
+    private List<GameObject> allTargets = new List<GameObject>();
+
+    private bool wasFrozenLastFrame;
+
+    private const float REWARD_LASER_HIT = 0.5f;
+    private const float PENALTY_LASER_MISS = -0.05f;
+    private const float PENALTY_LASER_USE = -0.02f;
+    private const float REWARD_FOR_TARGET_PICKUP = 0.2f;
+    private const float PENALTY_FOR_BEING_FROZEN = -0.5f;
+    private const float SPEED_REWARD_MULTIPLIER = 0.01f;
+    private const float CARRYING_PENALTY_MULTIPLIER = -0.02f;
+    private const float OPTIMAL_SPEED_RATIO = 0.8f; 
+
     // ------------------BASIC MONOBEHAVIOR FUNCTIONS-------------------
     
     // Initialize values
     protected override void Start()
     {
         base.Start();
+        rBody = GetComponent<Rigidbody>();
+        gameTimer = timer.GetComponent<Timer>();
+        baseTransform = baseLocation;
+        startingPosition = transform.localPosition;
+        wasFrozenLastFrame = IsFrozen();
         AssignBasicRewards();
     }
 
@@ -20,7 +43,14 @@ public class Byte: CogsAgent
     // that is done continuously
     protected override void FixedUpdate() {
         base.FixedUpdate();
-        
+
+        // //check for transition from not frozen -> frozen
+        if (!wasFrozenLastFrame && IsFrozen())
+        {
+            AddReward(PENALTY_FOR_BEING_FROZEN);
+        }
+        wasFrozenLastFrame = IsFrozen();
+
         LaserControl();
         // Movement based on DirToGo and RotateDir
         moveAgent(dirToGo, rotateDir);
@@ -29,30 +59,53 @@ public class Byte: CogsAgent
 
     
     // --------------------AGENT FUNCTIONS-------------------------
+    // private void OptimalSpeedRewards()
+    // {
+    //     float optimalSpeed = 1.5f - (0.05f * carriedTargets.Count);
+    //     float currentSpeed = rBody.velocity.magnitude;
+    //     float efficiency = currentSpeed / optimalSpeed;
+    //     if (efficiency >= OPTIMAL_SPEED_RATIO)
+    //     {
+    //         // reward speeding
+    //         AddReward(SPEED_REWARD_MULTIPLIER * (1 - efficiency));
+    //     }
+    //     else 
+    //     {   
+    //         // penalize moving too slow
+    //         AddReward(CARRYING_PENALTY_MULTIPLIER * (1 - efficiency));
+    //     }
+
+    //     // penalize carry
+    //     AddReward(CARRYING_PENALTY_MULTIPLIER * carriedTargets.Count);
+    // }
 
     // Get relevant information from the environment to effectively learn behavior
     public override void CollectObservations(VectorSensor sensor)
     {
         // Agent velocity in x and z axis 
-        var localVelocity = transform.InverseTransformDirection(rBody.velocity);
+        Vector3 localVelocity = transform.InverseTransformDirection(rBody.velocity);
         sensor.AddObservation(localVelocity.x);
         sensor.AddObservation(localVelocity.z);
 
         // Time remaning
-        sensor.AddObservation(timer.GetComponent<Timer>().GetTimeRemaning());  
+        sensor.AddObservation(gameTimer.GetTimeRemaning());  
 
         // Agent's current rotation
-        var localRotation = transform.rotation;
-        sensor.AddObservation(transform.rotation.y);
+        sensor.AddObservation(transform.localEulerAngles.y);
 
         // Agent and home base's position
-        sensor.AddObservation(this.transform.localPosition);
-        sensor.AddObservation(baseLocation.localPosition);
+        // sensor.AddObservation(this.transform.localPosition);
+        // sensor.AddObservation(baseLocation.localPosition);
+        sensor.AddObservation((baseTransform.localPosition - transform.localPosition).normalized);
+        sensor.AddObservation(Vector3.Distance(baseTransform.localPosition, transform.localPosition));
 
         // for each target in the environment, add: its position, whether it is being carried,
         // and whether it is in a base
-        foreach (GameObject target in targets){
+        foreach (GameObject target in allTargets){
             sensor.AddObservation(target.transform.localPosition);
+            Vector3 relativePosition = target.transform.localPosition - transform.localPosition;
+            sensor.AddObservation(relativePosition.normalized);
+            sensor.AddObservation(relativePosition.magnitude);
             sensor.AddObservation(target.GetComponent<Target>().GetCarried());
             sensor.AddObservation(target.GetComponent<Target>().GetInBase());
         }
@@ -104,17 +157,14 @@ public class Byte: CogsAgent
             discreteActionsOut[3] = 1;
         }
 
-
-        //TODO-2: B for the output for GoBackToBase();
-        if (Input.GetKey(KeyCode.B)){
+        //TODO-2: S for the output for GoBackToBase();
+        if (Input.GetKey(KeyCode.S)){
             discreteActionsOut[4] = 1;
         }
     }
 
         // What to do when an action is received (i.e. when the Brain gives the agent information about possible actions)
         public override void OnActionReceived(ActionBuffers actions){
-
-        
 
         int forwardAxis = (int)actions.DiscreteActions[0]; //NN output 0
 
@@ -132,8 +182,6 @@ public class Byte: CogsAgent
         
         MovePlayer(forwardAxis, rotateAxis, shootAxis, goToTargetAxis, goToBaseAxis);
 
-        
-
     }
 
 
@@ -147,6 +195,8 @@ public class Byte: CogsAgent
         if (collision.gameObject.CompareTag("HomeBase") && collision.gameObject.GetComponent<HomeBase>().team == GetTeam())
         {
             //Add rewards here
+            //remove 0.8f?
+            AddReward(0.8f+1f*carriedTargets.Count);
         }
         base.OnTriggerEnter(collision);
     }
@@ -159,12 +209,21 @@ public class Byte: CogsAgent
         if (collision.gameObject.CompareTag("Target") && collision.gameObject.GetComponent<Target>().GetInBase() != GetTeam() && collision.gameObject.GetComponent<Target>().GetCarried() == 0 && !IsFrozen())
         {
             //Add rewards here
+            AddReward(REWARD_FOR_TARGET_PICKUP);
+
         }
 
         if (collision.gameObject.CompareTag("Wall"))
         {
             //Add rewards here
+            AddReward(-0.75f);
         }
+        
+        if (collision.gameObject.CompareTag("Player"))
+        {
+            AddReward(-0.2f);
+        }
+
         base.OnCollisionEnter(collision);
     }
 
@@ -223,8 +282,6 @@ public class Byte: CogsAgent
         }
         else if (rotateAxis == 2){
             rotateDir = left;
-
-            
         }
 
         //shoot
