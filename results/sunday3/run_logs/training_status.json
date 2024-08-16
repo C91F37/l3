@@ -1,0 +1,65 @@
+{
+    "Agent": {
+        "checkpoints": [
+            {
+                "steps": 2999997,
+                "file_path": "results/sunday3/Agent/Agent-2999997.onnx",
+                "reward": 28.645555646883118,
+                "creation_time": 1711331955.8290076,
+                "auxillary_file_paths": [
+                    "results/sunday3/Agent/Agent-2999997.pt"
+                ]
+            },
+            {
+                "steps": 3499974,
+                "file_path": "results/sunday3/Agent/Agent-3499974.onnx",
+                "reward": null,
+                "creation_time": 1711333761.582843,
+                "auxillary_file_paths": [
+                    "results/sunday3/Agent/Agent-3499974.pt"
+                ]
+            },
+            {
+                "steps": 3999980,
+                "file_path": "results/sunday3/Agent/Agent-3999980.onnx",
+                "reward": -9.950000301003456,
+                "creation_time": 1711335548.6515336,
+                "auxillary_file_paths": [
+                    "results/sunday3/Agent/Agent-3999980.pt"
+                ]
+            },
+            {
+                "steps": 4499980,
+                "file_path": "results/sunday3/Agent/Agent-4499980.onnx",
+                "reward": null,
+                "creation_time": 1711337328.3570817,
+                "auxillary_file_paths": [
+                    "results/sunday3/Agent/Agent-4499980.pt"
+                ]
+            },
+            {
+                "steps": 4556322,
+                "file_path": "results/sunday3/Agent/Agent-4556322.onnx",
+                "reward": -59.349999979138374,
+                "creation_time": 1711337534.3495216,
+                "auxillary_file_paths": [
+                    "results/sunday3/Agent/Agent-4556322.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 4556322,
+            "file_path": "results/sunday3/Agent.onnx",
+            "reward": -59.349999979138374,
+            "creation_time": 1711337534.3495216,
+            "auxillary_file_paths": [
+                "results/sunday3/Agent/Agent-4556322.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.0.0",
+        "torch_version": "2.2.1+cu121"
+    }
+}
